@@ -3,21 +3,45 @@
 #include "PuzzlePlatformsGameInstance.h"
 
 #include "Engine/Engine.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Blueprint/UserWidget.h"
+
+#include "MenuSystem/MainMenu.h"
 
 UPuzzlePlatformsGameInstance::UPuzzlePlatformsGameInstance(const FObjectInitializer & ObjectInitializer)
 {
+	// A way to get ahold of a BP class
+	ConstructorHelpers::FClassFinder<UUserWidget> MenuBPClass(TEXT("/Game/MenuSystem/WBP_MainMenu"));
+	if (!ensure(MenuBPClass.Class != nullptr)) return;
 
+	MenuClass = MenuBPClass.Class;
 }
 
 void UPuzzlePlatformsGameInstance::Init()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Found class %s"), *MenuClass->GetName());
+}
 
+void UPuzzlePlatformsGameInstance::LoadMenu()
+{
+	if (!ensure(MenuClass != nullptr)) return;
+
+	// This creates a Menu object
+	Menu = CreateWidget<UMainMenu>(this, MenuClass);
+	if (!ensure(Menu != nullptr)) return;
+
+	Menu->Setup();
+	Menu->SetMenuInterface(this);
 }
 
 void UPuzzlePlatformsGameInstance::Host()
 {
-	UEngine* Engine = GetEngine();
+	if (Menu != nullptr)
+	{
+		Menu->Teardown();
+	}
 
+	UEngine* Engine = GetEngine();
 	if (!ensure(Engine != nullptr)) return;
 
 	Engine->AddOnScreenDebugMessage(0, 5.f, FColor::Red, TEXT("Hosting"));
