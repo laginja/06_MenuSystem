@@ -7,6 +7,8 @@
 #include "Blueprint/UserWidget.h"
 
 #include "MenuSystem/MainMenu.h"
+#include "MenuSystem/MenuWidget.h"
+#include "PuzzlePlatformsGameMode.h"
 
 UPuzzlePlatformsGameInstance::UPuzzlePlatformsGameInstance(const FObjectInitializer & ObjectInitializer)
 {
@@ -15,6 +17,12 @@ UPuzzlePlatformsGameInstance::UPuzzlePlatformsGameInstance(const FObjectInitiali
 	if (!ensure(MenuBPClass.Class != nullptr)) return;
 
 	MenuClass = MenuBPClass.Class;
+
+	// A way to get ahold of a BP class
+	ConstructorHelpers::FClassFinder<UUserWidget> InGameMenuBPClass(TEXT("/Game/MenuSystem/WBP_InGameMenu"));
+	if (!ensure(InGameMenuBPClass.Class != nullptr)) return;
+
+	InGameMenuClass = InGameMenuBPClass.Class;
 }
 
 void UPuzzlePlatformsGameInstance::Init()
@@ -28,6 +36,18 @@ void UPuzzlePlatformsGameInstance::LoadMenu()
 
 	// This creates a Menu object
 	Menu = CreateWidget<UMainMenu>(this, MenuClass);
+	if (!ensure(Menu != nullptr)) return;
+
+	Menu->Setup();
+	Menu->SetMenuInterface(this);
+}
+
+void UPuzzlePlatformsGameInstance::InGameLoadMenu()
+{
+	if (!ensure(InGameMenuClass != nullptr)) return;
+
+	// This creates a Menu object
+	UMenuWidget* Menu = CreateWidget<UMenuWidget>(this, InGameMenuClass);
 	if (!ensure(Menu != nullptr)) return;
 
 	Menu->Setup();
@@ -54,8 +74,12 @@ void UPuzzlePlatformsGameInstance::Host()
 
 void UPuzzlePlatformsGameInstance::Join(const FString& Address)
 {
-	UEngine* Engine = GetEngine();
+	if (Menu != nullptr)
+	{
+		Menu->Teardown();
+	}
 
+	UEngine* Engine = GetEngine();
 	if (!ensure(Engine != nullptr)) return;
 
 	Engine->AddOnScreenDebugMessage(0, 5.f, FColor::Red, FString::Printf(TEXT("Joining %s"), *Address));
@@ -65,3 +89,28 @@ void UPuzzlePlatformsGameInstance::Join(const FString& Address)
 
 	PlayerController->ClientTravel(*Address, ETravelType::TRAVEL_Absolute);
 }
+
+void UPuzzlePlatformsGameInstance::LoadMainMenu()
+{
+	// Working solution. If it's a server, when quitting all clients get moved to the Deafult Map(MainMenu).
+	// If it's a client then only that client get's moved to the Default Map
+	UWorld* World = GetWorld();
+	if (!ensure(World != nullptr)) return;
+
+	if (World->IsServer())
+	{
+		APuzzlePlatformsGameMode* GameMode = World->GetAuthGameMode<APuzzlePlatformsGameMode>();
+		if (!ensure(GameMode != nullptr)) return;
+		
+		GameMode->ReturnToMainMenuHost();
+	}
+	else
+	{
+		APlayerController* PlayerController = GetFirstLocalPlayerController();
+		if (!ensure(PlayerController != nullptr)) return;
+
+		PlayerController->ClientReturnToMainMenu("Back to main menu");
+	}
+
+}
+

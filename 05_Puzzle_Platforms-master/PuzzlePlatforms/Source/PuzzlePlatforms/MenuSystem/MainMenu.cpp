@@ -4,6 +4,7 @@
 
 #include "Components/Button.h"
 #include "Components/WidgetSwitcher.h"
+#include "Components/EditableTextBox.h"
 
 bool UMainMenu::Initialize()
 {
@@ -16,51 +17,16 @@ bool UMainMenu::Initialize()
 	if (!ensure(JoinButton != nullptr)) return false;
 	JoinButton->OnClicked.AddDynamic(this, &UMainMenu::OpenJoinMenu);
 
+	if (!ensure(QuitGameButton != nullptr)) return false;
+	QuitGameButton->OnClicked.AddDynamic(this, &UMainMenu::QuitGame);
+
 	if (!ensure(BackJoinMenuButton != nullptr)) return false;
 	BackJoinMenuButton->OnClicked.AddDynamic(this, &UMainMenu::OpenMainMenu);
 
+	if (!ensure(ConfirmJoinMenuButton != nullptr)) return false;
+	ConfirmJoinMenuButton->OnClicked.AddDynamic(this, &UMainMenu::JoinServer);
+
 	return true;
-}
-
-void UMainMenu::SetMenuInterface(IMenuInterface* MenuInterface)
-{
-	this->MenuInterface = MenuInterface;
-}
-
-void UMainMenu::Setup()
-{
-	this->AddToViewport();
-
-	UWorld* World = GetWorld();
-	if (!ensure(World != nullptr)) return;
-
-	APlayerController* PlayerController = World->GetFirstPlayerController();
-	if (!ensure(PlayerController != nullptr)) return;
-
-	// FInputModeUIOnly is a struct which contains variables for input mode
-	FInputModeUIOnly InputModeData;
-	InputModeData.SetWidgetToFocus(this->TakeWidget());
-	InputModeData.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-	PlayerController->SetInputMode(InputModeData);
-
-	PlayerController->bShowMouseCursor = true;
-}
-
-void UMainMenu::Teardown()
-{
-	this->RemoveFromViewport();
-
-	UWorld* World = GetWorld();
-	if (!ensure(World != nullptr)) return;
-
-	APlayerController* PlayerController = World->GetFirstPlayerController();
-	if (!ensure(PlayerController != nullptr)) return;
-
-	// FInputModeGameOnly is a struct which contains variables for input mode
-	FInputModeGameOnly InputModeData;
-	PlayerController->SetInputMode(InputModeData);
-
-	PlayerController->bShowMouseCursor = false;
 }
 
 void UMainMenu::HostServer()
@@ -69,6 +35,27 @@ void UMainMenu::HostServer()
 	{
 		MenuInterface->Host();
 	}
+}
+
+void UMainMenu::JoinServer()
+{
+	if (MenuInterface != nullptr)
+	{
+		if (!ensure(IPAddressField != nullptr)) return;
+		const FString& Address = IPAddressField->GetText().ToString();
+		MenuInterface->Join(Address);
+	}
+}
+
+void UMainMenu::QuitGame()
+{
+	UWorld* World = GetWorld();
+	if (!ensure(World != nullptr)) return;
+
+	APlayerController* PlayerController = World->GetFirstPlayerController();
+	if (!ensure(PlayerController != nullptr)) return;
+
+	PlayerController->ConsoleCommand("quit");
 }
 
 void UMainMenu::OpenJoinMenu()
